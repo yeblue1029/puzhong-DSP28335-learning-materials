@@ -1,0 +1,32 @@
+# Source code and configuration files
+*.c text
+*.h text
+*.asm text
+*.cmd text
+*.gel text
+*.ccxml text
+*.project text
+*.cproject text
+*.ccsproject text
+*.ini text
+*.txt text
+*.md text
+
+# Binary documents
+*.pdf binary
+*.ppt binary
+*.pptx binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.chm binary
+
+# Binary images and libraries
+*.bmp binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.lib binary
+*.bin binary

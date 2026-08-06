@@ -1,0 +1,64 @@
+# ==================================================
+# Development tools
+# Keep the folder README, but do not upload binaries
+# or third-party/cracked software.
+# ==================================================
+5--开发工具/*
+!5--开发工具/README.md
+
+# Compressed archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# Actual video files
+# PPT and PPTX files are NOT ignored.
+*.mp4
+*.avi
+*.wmv
+*.mov
+*.mkv
+*.flv
+
+# Executables and binary libraries
+*.exe
+*.EXE
+*.dll
+*.DLL
+*.msi
+*.iso
+
+# CCS build output directories
+Debug/
+Release/
+*/Debug/
+*/Release/
+
+# Compiler-generated files
+*.obj
+*.o
+*.out
+*.map
+*.pdb
+*.d
+*.log
+*.tmp
+*.bak
+
+# IDE-generated files
+.vscode/
+.idea/
+.vs/
+.metadata/
+
+# Windows temporary files
+Thumbs.db
+Desktop.ini
+
+# Local operation log
+/进展.txt
+
+# Office temporary files
+~$*
