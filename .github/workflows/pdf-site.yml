@@ -1,0 +1,90 @@
+name: Build & Deploy PDF Library
+
+# Automatically rebuild the PDF index and redeploy the static GitHub Pages site
+# whenever PDFs are added / removed / renamed / moved, or the viewer / scripts
+# / README change. Runs the dependency-free scanner and publishes viewer/ as
+# the Pages site. PDFs themselves are NOT published — they are read from
+# raw.githubusercontent.com (CORS-enabled) so the site stays tiny.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.pdf'
+      - '**/*.PDF'
+      - '.gitattributes'
+      - 'README.md'
+      - 'viewer/**'
+      - 'scripts/**'
+      - '.github/workflows/pdf-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Avoid concurrent Pages deployments racing each other.
+concurrency:
+  group: pdf-site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Scan PDFs & build site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false # LFS objects not needed: pointer size is parsed by the scanner
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build PDF.js viewer (fetch official release, trim, apply patch)
+        run: node scripts/build-viewer.mjs
+
+      - name: Derive repository coordinates
+        id: coords
+        run: |
+          echo "owner=${GITHUB_REPOSITORY%%/*}" >> "$GITHUB_OUTPUT"
+          echo "name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+
+      - name: Scan PDFs and generate pdf-index.json
+        env:
+          REPO_OWNER: ${{ steps.coords.outputs.owner }}
+          REPO_NAME: ${{ steps.coords.outputs.name }}
+          REPO_BRANCH: ${{ github.ref_name }}
+          PAGES_BASE_URL: https://${{ steps.coords.outputs.owner }}.github.io/${{ steps.coords.outputs.name }}
+        run: node scripts/scan-pdfs.mjs
+
+      - name: Verify build artifact
+        run: |
+          echo "PDF count in index: $(node -e "console.log(require('./viewer/pdf-index.json').pdf_count)")"
+          test -f viewer/index.html
+          test -f viewer/web/viewer.html
+          test -f viewer/build/pdf.mjs
+          test -f viewer/build/pdf.worker.mjs
+          echo "Artifact contents:"
+          ls -la viewer
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: viewer
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
