@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PDF 文档中心 · DSP28335 Learning Materials</title>
+<meta name="description" content="普中 DSP28335 / TMS320F28335 学习资料 PDF 在线文档中心：在线阅读、原始 PDF、GitHub 文件页。静态站点，无需登录。" />
+<style>
+  :root{
+    --bg:#0f1419; --panel:#161b22; --panel2:#1c2330; --border:#2a3340;
+    --text:#e6edf3; --muted:#8b98a5; --accent:#58a6ff; --accent2:#3fb950;
+    --warn:#d29922; --danger:#f85149; --shadow:0 6px 24px rgba(0,0,0,.35);
+    font-family:"Noto Sans CJK SC","WenQuanYi Micro Hei",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(88,166,255,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(63,185,80,.08), transparent 60%),
+      var(--bg);
+    color:var(--text); line-height:1.55; min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+  header.hero{padding:8px 0 4px}
+  .eyebrow{color:var(--accent);font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+  h1{font-size:30px;margin:8px 0 6px;letter-spacing:.5px}
+  .lead{color:var(--muted);max-width:760px;font-size:15px}
+  .stats{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0 4px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;min-width:118px;box-shadow:var(--shadow)}
+  .stat .n{font-size:22px;font-weight:800;color:var(--text)}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .stat.accent .n{color:var(--accent)}
+  .stat.green .n{color:var(--accent2)}
+  .stat.warn .n{color:var(--warn)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);align-items:center;position:sticky;top:0;background:linear-gradient(var(--panel),var(--panel)) var(--panel);z-index:5}
+  .search{flex:1 1 280px;position:relative}
+  .search input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 14px 11px 38px;font-size:14px;outline:none}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,166,255,.18)}
+  .search .ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+  select{background:var(--panel2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:11px 12px;font-size:14px;cursor:pointer}
+  .btn-sort{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:14px;cursor:pointer}
+  .btn-sort:hover{border-color:var(--accent)}
+  .cnt{color:var(--muted);font-size:13px;margin-left:auto;white-space:nowrap}
+  .group{padding:6px 16px 18px}
+  .group h3{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--accent);margin:18px 0 8px;font-weight:700}
+  .group h3 .pc{color:var(--muted);font-weight:500;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--border)}
+  tbody tr{border-bottom:1px solid rgba(255,255,255,.04)}
+  tbody tr:hover{background:rgba(88,166,255,.06)}
+  td{padding:9px 10px;vertical-align:middle}
+  .fname{color:var(--text);font-weight:500;word-break:break-all}
+  .fdir{color:var(--muted);font-size:12px;word-break:break-all}
+  .fsize{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .actions{display:flex;gap:6px;flex-wrap:wrap}
+  a.act{display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);transition:.15s}
+  a.act:hover{transform:translateY(-1px)}
+  a.read{color:#0f1419;background:var(--accent);border-color:transparent}
+  a.read:hover{box-shadow:0 4px 14px rgba(88,166,255,.4)}
+  a.raw{color:var(--accent2)}
+  a.gh{color:var(--muted)}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:999px;vertical-align:middle;margin-left:6px}
+  .badge.lfs{background:rgba(210,153,34,.16);color:var(--warn);border:1px solid rgba(210,153,34,.4)}
+  .tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button.chip{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:999px;padding:6px 13px;font-size:13px;cursor:pointer}
+  button.chip.active{background:var(--accent);color:#0f1419;border-color:transparent;font-weight:700}
+  button.chip:hover{border-color:var(--accent)}
+  .empty{padding:40px 16px;text-align:center;color:var(--muted)}
+  .footer{margin-top:26px;color:var(--muted);font-size:12.5px;line-height:1.7}
+  .footer a{color:var(--accent);text-decoration:none}
+  .footer code{background:var(--panel2);padding:1px 6px;border-radius:5px;color:var(--text)}
+  .loader{padding:50px 16px;text-align:center;color:var(--muted)}
+  .spin{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;display:inline-block;vertical-align:middle;margin-right:10px;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .err{padding:40px 16px;color:var(--danger)}
+  details.note{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:18px 0}
+  details.note summary{cursor:pointer;color:var(--warn);font-weight:600}
+  @media(max-width:680px){
+    th.col-dir,td.col-dir{display:none}
+    h1{font-size:23px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">PDF Library · 在线文档中心</div>
+    <h1>DSP28335 学习资料 PDF 文档中心</h1>
+    <p class="lead">普中 DSP28335 / TI TMS320F28335 学习资料在线文档中心。在浏览器中直接在线阅读仓库内全部 PDF（翻页 / 缩放 / 搜索 / 缩略图 / 下载 / 打印），同时为每个文档保留可被云端 AI 与脚本直接获取的原始 PDF 链接。静态站点，无需登录。</p>
+  </header>
+  <div class="stats" id="stats"></div>
+  <details class="note">
+    <summary>关于 AI / 脚本如何获取原始 PDF</summary>
+    <p style="margin:10px 0 4px;color:var(--text)">
+      每个文档的 <b>原始 PDF</b> 指向 <code>raw.githubusercontent.com</code>，无需执行 JavaScript 即可经 HTTP 获取，
+      返回真实 PDF 二进制（已开启 CORS、支持 HTTP Range 分段请求）。<br/>
+      本仓库无 Git-LFS 跟踪文件，所有 PDF 均可通过 raw 正常获取。
+    </p>
+  </details>
+  <div class="card">
+    <div class="toolbar">
+      <div class="search">
+        <span class="ico">🔍</span>
+        <input id="q" type="search" placeholder="搜索文件名 / 目录…" autocomplete="off" />
+      </div>
+      <select id="sort" title="排序">
+        <option value="path">按路径</option>
+        <option value="name">按文件名</option>
+        <option value="size-desc">按大小（大→小）</option>
+        <option value="size-asc">按大小（小→大）</option>
+      </select>
+      <span class="cnt" id="cnt"></span>
+    </div>
+    <div class="tagrow" id="cats" style="padding:14px 16px 0"></div>
+    <div id="list"><div class="loader"><span class="spin"></span>正在加载 PDF 索引…</div></div>
+  </div>
+  <div class="footer">
+    本页由 <code>scripts/scan-pdfs.mjs</code> 扫描仓库后生成的 <code>viewer/pdf-index.json</code> 驱动，由 GitHub Actions 自动构建并发布到 GitHub Pages。
+    在线阅读器基于 <a id="pdfjslink" href="https://github.com/mozilla/pdf.js" target="_blank" rel="noopener">Mozilla PDF.js</a>。<br/>
+    PDF 原文件仅存一份，存放在仓库 main 分支，<b>未复制</b>到本站点；阅读器经补丁放行 <code>raw.githubusercontent.com</code> 跨域加载。
+  </div>
+</div>
+<script>
+const PAGES_BASE = location.origin + location.pathname.replace(/[^/]*$/,'');
+let DATA = null;
+let activeCat = "all";
+const elStats = document.getElementById('stats');
+const elList = document.getElementById('list');
+const elCats = document.getElementById('cats');
+const elCnt = document.getElementById('cnt');
+const elQ = document.getElementById('q');
+const elSort = document.getElementById('sort');
+function topCat(path){ return (path.split('/')[0]||"(根目录)"); }
+function renderStats(){
+  if(!DATA) return;
+  elStats.innerHTML = `
+    <div class="stat accent"><div class="n">${DATA.pdf_count}</div><div class="l">PDF 文档</div></div>
+    <div class="stat green"><div class="n">${DATA.lfs_count}</div><div class="l">Git-LFS 大文件</div></div>
+    <div class="stat"><div class="n">${(DATA.total_size/1048576).toFixed(1)} MB</div><div class="l">PDF 总大小</div></div>
+    <div class="stat warn"><div class="n">raw</div><div class="l">AI 可直接获取</div></div>
+  `;
+}
+function renderCats(){
+  const counts = {};
+  for(const f of DATA.files){ const c=topCat(f.path); counts[c]=(counts[c]||0)+1; }
+  const cats = Object.keys(counts).sort((a,b)=>a.localeCompare(b,'zh'));
+  const chips = [`<button class="chip ${activeCat==='all'?'active':''}" data-cat="all">全部 ${DATA.files.length}</button>`]
+    .concat(cats.map(c=>`<button class="chip ${activeCat===c?'active':''}" data-cat="${c}">${c} ${counts[c]}</button>`));
+  elCats.innerHTML = chips.join('');
+  elCats.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{
+    activeCat=b.dataset.cat; renderCats(); renderList();
+  }));
+}
+function sortFiles(arr){
+  const v=elSort.value;
+  const cmp={
+    'path':(a,b)=>a.path.localeCompare(b.path,'zh'),
+    'name':(a,b)=>a.name.localeCompare(b.name,'zh'),
+    'size-desc':(a,b)=>b.size-a.size,
+    'size-asc':(a,b)=>a.size-a.size,
+  }[v];
+  return arr.slice().sort(cmp);
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function viewerHref(f){
+  return PAGES_BASE + 'web/viewer.html?file=' + encodeURIComponent(f.raw_url);
+}
+function renderList(){
+  const q=elQ.value.trim().toLowerCase();
+  let arr=DATA.files.filter(f=>{
+    if(activeCat!=='all' && topCat(f.path)!==activeCat) return false;
+    if(!q) return true;
+    return f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q);
+  });
+  arr=sortFiles(arr);
+  elCnt.textContent = `${arr.length} / ${DATA.files.length} 个文档`;
+  if(!arr.length){ elList.innerHTML='<div class="empty">没有匹配的 PDF。</div>'; return; }
+  const groups={};
+  for(const f of arr){ (groups[f.dir]=groups[f.dir]||[]).push(f); }
+  const dirs=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'zh'));
+  let html='';
+  for(const d of dirs){
+    const g=groups[d];
+    html+=`<div class="group"><h3>📁 ${d?esc(d):'(仓库根目录)'} <span class="pc">${g.length}</span></h3>`;
+    html+=`<table><thead><tr><th>文件名</th><th class="col-dir">目录</th><th>大小</th><th>操作</th></tr></thead><tbody>`;
+    for(const f of g){
+      const lfs = f.lfs?`<span class="badge lfs" title="Git-LFS 跟踪：raw 返回 LFS 指针而非 PDF">LFS</span>`:'';
+      html+=`<tr>
+        <td><span class="fname">${esc(f.name)}</span>${lfs}</td>
+        <td class="col-dir"><span class="fdir">${esc(f.dir)}</span></td>
+        <td class="fsize">${esc(f.size_human)}</td>
+        <td><div class="actions">
+          <a class="act read" href="${viewerHref(f)}" target="_blank" rel="noopener" title="在新标签页用 PDF.js 阅读">📖 在线阅读</a>
+          <a class="act raw" href="${f.raw_url}" target="_blank" rel="noopener" title="原始 PDF（raw.githubusercontent.com，AI/脚本可直接获取）">⬇ 原始PDF</a>
+          <a class="act gh" href="${f.github_url}" target="_blank" rel="noopener" title="GitHub 文件页">🐙 GitHub</a>
+        </div></td>
+      </tr>`;
+    }
+    html+=`</tbody></table></div>`;
+  }
+  elList.innerHTML=html;
+}
+async function init(){
+  try{
+    const res=await fetch('pdf-index.json',{cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    DATA=await res.json();
+    document.title = `${DATA.pdf_count} 个 PDF · DSP28335 文档中心`;
+    renderStats(); renderCats(); renderList();
+  }catch(e){
+    elList.innerHTML=`<div class="err">加载 pdf-index.json 失败：${esc(e.message)}<br/>若从本地 file:// 打开则无法 fetch，请用 HTTP 服务器访问。</div>`;
+  }
+}
+let t;
+elQ.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(renderList,120);});
+elSort.addEventListener('change',renderList);
+init();
+</script>
+</body>
+</html>

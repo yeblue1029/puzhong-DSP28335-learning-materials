@@ -16,6 +16,29 @@
 - `普中DSP28335开发攻略.pdf`：开发板配套学习手册
 -  `手把手教你学DSP：基于TMS320F28335.pdf`：研旭开发板配套学习手册
 
+## 📚 DSP28335 PDF 在线文档中心
+
+仓库内全部 PDF 都可以在浏览器中直接在线阅读（翻页 / 缩放 / 文本搜索 / 缩略图 / 下载 / 打印），同时为每个文档保留可被云端 AI 与脚本直接获取的**原始 PDF 链接**。
+
+**📖 PDF 文档中心**（自动索引全部 PDF，可搜索 / 按目录分类）：
+
+https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/
+
+示例在线阅读（基于 Mozilla PDF.js，跨域读取 GitHub raw，无需登录）：
+
+- 📖 [普中 DSP28335 开发攻略](https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/web/viewer.html?file=https%3A%2F%2Fraw.githubusercontent.com%2Fyeblue1029%2Fpuzhong-DSP28335-learning-materials%2Fmain%2F%25E6%2599%25AE%25E4%25B8%25ADDSP28335%25E5%25BC%2580%25E5%258F%2591%25E6%2594%25BB%25E7%2595%25A5.pdf)
+- 📖 [手把手教你学 DSP：基于 TMS320F28335](https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/web/viewer.html?file=https%3A%2F%2Fraw.githubusercontent.com%2Fyeblue1029%2Fpuzhong-DSP28335-learning-materials%2Fmain%2F%25E6%2589%258B%25E6%258A%258A%25E6%2589%258B%25E6%2595%2599%25E4%25BD%25A0%25E5%25AD%25A6DSP%25EF%25BC%259A%25E5%259F%25BA%25E4%25BA%258ETMS320F28335.pdf)
+- 📖 [TMS320F28335 数据手册（中文版）](https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/web/viewer.html?file=https%3A%2F%2Fraw.githubusercontent.com%2Fyeblue1029%2Fpuzhong-DSP28335-learning-materials%2Fmain%2F6--%25E8%258A%25AF%25E7%2589%2587%25E8%25B5%2584%25E6%2596%2599%2F%25E5%25BC%2580%25E5%258F%2591%25E6%259D%25BF%25E8%258A%25AF%25E7%2589%2587%25E6%2595%25B0%25E6%258D%25AE%25E6%2589%258B%25E5%2586%258C%2Ftms320f28335%28%25E4%25B8%25AD%25E6%2596%2587%25E7%2589%2588%29.pdf)
+
+**🤖 AI / 脚本获取原始 PDF**：每个 PDF 的原始文件托管在 `raw.githubusercontent.com`，无需 JavaScript 即可经 HTTP 获取，返回真实 PDF 二进制（已开启 CORS、支持 Range 分段请求）：
+
+```bash
+curl -L "https://raw.githubusercontent.com/yeblue1029/puzhong-DSP28335-learning-materials/main/%E6%99%AE%E4%B8%ADDSP28335%E5%BC%80%E5%8F%91%E6%94%BB%E7%95%A5.pdf" -o manual.pdf
+file manual.pdf   # -> PDF document
+```
+
+完整清单见 [`viewer/pdf-index.json`](viewer/pdf-index.json)，包含每个 PDF 的 `viewer_url` / `raw_url` / `github_url`。架构与维护说明见 [`viewer/MAINTENANCE.md`](viewer/MAINTENANCE.md)。
+
 ## 开发环境
 
 - Target device: TMS320F28335
