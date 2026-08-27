@@ -9,27 +9,50 @@
 
 ```
 GitHub Repository (main 分支)
-  └─ 原始 PDF（唯一一份，不复制、不移动）
+  └─ 原始 PDF（唯一一份，不复制、不移动、不重编码）
         │
-        ├─► raw.githubusercontent.com  ─► 云端 AI / curl / 脚本
+        ├─► raw.githubusercontent.com  ─► Agent / 脚本 / curl
         │     （CORS * + HTTP Range，返回真实 PDF 二进制）
         │
-GitHub Pages（站点极小，~8 MB）
+        ├─► AI Extraction Pipeline（scripts/build-ai-docs.py，CI 内运行）
+        │     每页：PyMuPDF embedded text → 稀疏判定 → 不足才 OCR 兜底
+        │     ─► viewer/ai/  TXT / HTML / page TXT / block JSON / metadata
+        │
+GitHub Pages（viewer/ 整目录发布）
   ├─ index.html          PDF 文档中心（读取 pdf-index.json 渲染列表）
   ├─ pdf-index.json      由 scripts/scan-pdfs.mjs 自动生成的清单
   ├─ web/                Mozilla PDF.js 官方预构建 viewer（精简版）
-  └─ build/              pdf.mjs / pdf.worker.mjs / pdf.sandbox.mjs
+  ├─ build/              pdf.mjs / pdf.worker.mjs / pdf.sandbox.mjs
+  └─ ai/                 AI Reading Path（build-ai-docs.py 生成的派生文本）
+        ├─ index.html    无 JS 依赖的静态文档列表
+        ├─ index.json    机器入口（Web Chat AI 首选）
+        ├─ AI_USAGE.txt  纯文本使用说明
+        └─ docs/<doc_id>/ manifest.json + full.txt + full.html
+                          + pages/0001.txt … + blocks/0001.json …
         │
         ▼
   浏览器：index.html → 在线阅读链接 → web/viewer.html?file=<raw URL>
           PDF.js 通过 fetch 跨域读取 raw（CORS 已开启）→ canvas 渲染
+  网页聊天 AI（ChatGPT/Gemini/DeepSeek）：README → AI_ACCESS.md
+          → /ai/index.json → 派生文本（不再默认 raw PDF 优先）
 ```
+
+**三种访问路径（务必区分）**
+
+| 路径 | 入口 | 说明 |
+| --- | --- | --- |
+| Human | `viewer/index.html` → PDF.js | 人工阅读，体验不变 |
+| Web Chat AI | README → `AI_ACCESS.md` → `/ai/index.json` → AI text | 网页聊天 AI 无法可靠读 raw PDF / 执行 PDF.js，走派生文本层 |
+| Agent / Script | `raw.githubusercontent.com` 原始 PDF | 有二进制下载 + 本地 PDF parser 的环境直接解析源头 |
 
 **关键设计决策**
 
-- **PDF 原文件只存一份**：仓库 ~445 MB，PDF 本体不复制进 Pages。
-  Pages 只发布极小的 viewer + index（~8 MB），PDF 经 `raw.githubusercontent.com` 读取。
-- **同时满足"人"与"AI"**：同一个 `raw_url` 既是 viewer 的数据源，也是 AI / 脚本的原始 PDF 入口。
+- **PDF 原文件只存一份**：仓库 ~445 MB，PDF 本体不复制进 Pages，
+  也不为 AI 再提交一套 PDF 副本。
+- **Pages 只发布 viewer + index + ai 派生文本**：PDF 经 `raw.githubusercontent.com` 读取；
+  AI 派生文本由 CI 每次部署时从原始 PDF 重建（`viewer/ai/` 不进 Git history）。
+- **原始 PDF 是唯一 Source of Truth**：所有派生文本可经
+  `manifest.source_sha256` 追溯到对应原始 PDF；构建脚本对 PDF 只读。
 - **零后端、零数据库、零登录**：纯静态站点，托管在 GitHub Pages。
 
 ---
@@ -45,8 +68,12 @@ viewer/
 scripts/
   scan-pdfs.mjs       递归扫描 PDF、生成 pdf-index.json（无依赖，Node 18+）
   build-viewer.mjs    下载官方 PDF.js 预构建包、精简、打跨域补丁（无依赖，Node 18+）
+  build-ai-docs.py    AI Reading Path：从原始 PDF 生成派生 TXT/HTML/JSON
+                      （PyMuPDF + 本地 Tesseract；原生文字优先，OCR 仅兜底）
+  verify-ai-docs.py   验证 viewer/ai 输出（JSON/链接/页数/UTF-8/LFS 防护）
+AI_ACCESS.md          仓库级 AI 访问契约（Web Chat AI 发现路径的锚点）
 .github/workflows/
-  pdf-site.yml        构建 viewer → 扫描 → 发布 GitHub Pages
+  pdf-site.yml        构建 viewer → 扫描 → 构建 AI 文档 → 验证 → 发布 Pages
 ```
 
 由构建脚本生成的文件（**不提交**，见 `.gitignore`，CI 与本地各自动生成）：
@@ -57,10 +84,14 @@ viewer/web/           PDF.js 官方 viewer（viewer.html / viewer.mjs[含补丁]
                       + images/ locale/ cmaps/ iccs/ standard_fonts/ wasm/）
 viewer/LICENSE        PDF.js 的 Apache-2.0 许可
 viewer/pdf-index.json 由 scan-pdfs.mjs 生成的 PDF 清单
+viewer/ai/            AI Reading Path 全部派生产物（index.json / index.html /
+                      AI_USAGE.txt / build-report.json / docs/<doc_id>/…）
+.ai-cache/            本地/CI 的每文档 OCR 缓存（不入库）
 ```
 
-> 因此仓库**不包含**任何 PDF.js 二进制——克隆后运行 `node scripts/build-viewer.mjs`
-> 即可复现与线上完全一致的 viewer。
+> 因此仓库**不包含**任何 PDF.js 二进制，也不包含 AI 派生文本——克隆后运行
+> `node scripts/build-viewer.mjs` 与 `python3 scripts/build-ai-docs.py`
+> 即可复现与线上完全一致的站点。
 
 ---
 
@@ -132,11 +163,99 @@ node scripts/scan-pdfs.mjs
 
 ---
 
+## 五点五、AI Reading Path（`scripts/build-ai-docs.py`）
+
+网页聊天 AI（ChatGPT / Gemini / DeepSeek 等）能打开 GitHub、读 HTML/TXT/JSON，
+但可能无法可靠读取 raw PDF 二进制，也无法执行 PDF.js 取得正文。因此本仓库
+新增一套**派生文本层**：CI 从原始 PDF 自动生成网页聊天 AI 容易读取的
+TXT / HTML / page TXT / block JSON / metadata。
+
+**发现链路（自动路由验收路径）**：
+
+```text
+GitHub repository → README.md（🤖 AI / LLM 章节）
+→ AI_ACCESS.md（仓库根目录，AI 访问契约）
+→ /ai/index.json（机器入口，纯 JSON，无需 JS）
+→ 按 title / display_title / source_path / match_key 定位文档
+→ ai_full_text_url（full.txt）→ pages/（当前页/前页/后页）→ blocks/（必要时）
+```
+
+**每页提取策略（Native Text First + OCR Fallback）**：
+
+```text
+PDF page → PyMuPDF embedded text → 稀疏判定（有意义字符 < 24，阈值可调）
+  ├── 足够      → TEXT_SOURCE: embedded（PDF 内文字对象直接提取）
+  └── 不足/无文字 → 渲染 300 DPI PNG → 本地 Tesseract（chi_sim+eng）
+        ├── OCR 更优 → TEXT_SOURCE: ocr
+        └── 未更优   → TEXT_SOURCE: mixed（保留内嵌文字）
+两种来源均无文字 → TEXT_SOURCE: none；异常 → error
+```
+
+- **绝不无条件对全部页面 OCR**：只有稀疏页才渲染并 OCR；
+  300 DPI 临时 PNG 用后即删，绝不发布（避免 Pages artifact 膨胀）。
+- OCR 完全在 CI runner 内本地完成（`tesseract-ocr` + `tesseract-ocr-chi-sim`
+  + `tesseract-ocr-eng`），**不调用云 OCR / 付费 API / 第三方上传服务**。
+- **OCR 数据的证据等级**：embedded text 是从 PDF 内文字对象提取（可靠性最高）；
+  OCR text 是从扫描图像机器识别得到，**不是"原文等价物"**。涉及芯片型号、引脚、
+  寄存器、bit 位、地址、数字、公式、表格、原理图、程序代码的关键结论，
+  当 `TEXT_SOURCE = ocr` 时应回原始 PDF 页面核验（`viewer_url` + 物理页码）。
+  该警示同时写入 `AI_ACCESS.md` 与部署后的 `viewer/ai/AI_USAGE.txt`。
+- **OCR blocks 坐标**：Tesseract TSV 行级块，从 300 DPI 像素坐标换算回
+  PDF 点（原点左上角，与 PyMuPDF 一致），带 `block_source: "ocr"`，
+  不伪造 embedded 坐标。
+- **doc_id** = `SHA256(仓库相对 PDF 路径)[:16]`，稳定 URL safe；
+  manifest 保留原中文文件名 / `source_path` / `source_sha256`。
+- **页码**：所有 `PDF_PAGE` / `pages/NNNN.txt` 均为 PDF 物理页（1-based，
+  即 PDF.js Viewer 页码），不是书籍页脚印刷页码。
+- **Git-LFS 防护**：打开前校验文件存在、大小合理、`%PDF-` magic；
+  内容是 LFS pointer 时标记 `lfs_not_materialized`，绝不把 pointer 当正文。
+- **稀疏阈值**：`MIN_EMBEDDED_CHARS = 24`（脚本顶部常量，带注释可调）。
+  取舍说明：封面 / 整页插图 / 目录装饰页不会被无脑 OCR 后假装正文可靠；
+  例如《普中DSP28335开发攻略》16 个仅含页眉的插图页（~30 字符）保留 embedded。
+- **缓存**（性能优化，非正确性前提）：key = 源 PDF SHA256 + extractor 版本 +
+  OCR 配置；CI 用 `actions/cache`（`.ai-cache/`），restore 后未变更的文档直接
+  复用上次产物。缓存 miss 时完整构建依然正确。
+
+**输出结构**：
+
+```
+viewer/ai/
+├── index.html            静态文档列表（HTML 源码即含核心信息，无 JS 依赖）
+├── index.json            机器入口（schema_version=1 / documents[] / 绝对 URL）
+├── AI_USAGE.txt          纯文本使用说明（含 TEXT_SOURCE 语义与 OCR 警示）
+├── build-report.json     构建真实统计（PDF 数 / 页数 / OCR 耗时 / 体积）
+└── docs/<doc_id>/
+    ├── manifest.json     元数据（SHA256 / 页数 / 来源统计 / 引擎版本 / 状态）
+    ├── full.txt          全文（PDF_PAGE 分隔 + TEXT_SOURCE 标记）
+    ├── full.html         静态 HTML 全文（anchor: #pdf-page-NNNN，无 JS）
+    ├── pages/0001.txt    每物理页一个 TXT（页级读取：当前/前/后页）
+    └── blocks/0001.json  每页版面块（bbox + 文本 + block_source）
+```
+
+**验证**：`python3 scripts/verify-ai-docs.py` 检查 JSON 语法、链接、页数一致、
+必需文件、UTF-8、SHA256、`%PDF-`、LFS pointer、extraction status 一致性、
+URL 卫生（不引用本地路径）、index.html 静态源码完整性。失败即退出码 1，
+CI 会阻断部署。
+
+本地手动重建（调试用，需要 `pip install pymupdf` 与本地 tesseract）：
+
+```bash
+python3 scripts/build-ai-docs.py       # 全仓库
+AI_LIMIT=5 python3 scripts/build-ai-docs.py            # 只处理前 5 个（测性能）
+AI_DOCS_ONLY="手把手教你学DSP：基于TMS320F28335.pdf" python3 scripts/build-ai-docs.py
+python3 scripts/verify-ai-docs.py      # 验证
+```
+
+
+
 ## 六、GitHub Actions 自动化
 
-`.github/workflows/pdf-site.yml`：push 到 `main`（涉及 PDF / README / viewer / scripts / workflow 时）
-自动：检出 → 安装 Node → 运行扫描脚本生成 `pdf-index.json` → 用 `actions/upload-pages-artifact`
-打包 `viewer/` → `actions/deploy-pages` 发布到 GitHub Pages。
+`.github/workflows/pdf-site.yml`：push 到 `main`（涉及 PDF / README / AI_ACCESS / viewer / scripts / workflow 时）
+自动：检出 → 安装 Node → 运行扫描脚本生成 `pdf-index.json`
+→ 恢复 `.ai-cache` → 安装 Python + PyMuPDF + Tesseract（chi_sim + eng）
+→ `scripts/build-ai-docs.py` 生成 `viewer/ai/` → `scripts/verify-ai-docs.py` 验证
+→ 用 `actions/upload-pages-artifact` 打包 `viewer/`（含 `ai/`）
+→ `actions/deploy-pages` 发布到 GitHub Pages。
 
 日常只需 `git add` → `git commit` → `git push`，在线文档中心即自动更新。
 
@@ -148,8 +267,10 @@ node scripts/scan-pdfs.mjs
 
 1. **Git-LFS 文件**：本仓库无 Git-LFS 跟踪文件，所有 PDF 均可通过 raw 正常获取。
 
-2. **GitHub Pages 限制**：站点已限缩到 ~8 MB，无容量问题；但 Pages 带宽软上限 100 GB/月，
-   若被大量抓取可能触发限流。PDF 本体不在 Pages，不受 Pages 容量限制。
+2. **GitHub Pages 限制**：PDF.js viewer 部分已限缩到 ~8 MB；新增 `viewer/ai/`
+   派生文本后站点总体积约数十 MB（远低于 Pages 1 GB artifact 上限），
+   但 Pages 带宽软上限 100 GB/月，若被大量抓取可能触发限流。
+   PDF 本体不在 Pages，不受 Pages 容量限制。
 
 3. **raw.githubusercontent.com 限制**：单文件 <100 MB 的非 LFS PDF 可正常获取；
    `accept-ranges: bytes` 支持，但较大 PDF（>50 MB）首次加载较慢，依赖浏览器分段缓存。
@@ -163,3 +284,19 @@ node scripts/scan-pdfs.mjs
 
 6. **浏览器兼容**：PDF.js v6 需要较新浏览器（近 2 年的 Chrome / Edge / Firefox / Safari）。
    老旧浏览器可改用 `pdfjs-<ver>-legacy-dist.zip` 替换 `build/` 与 `web/`。
+
+7. **AI 派生文本的证据等级**：`TEXT_SOURCE: embedded` 等同 PDF 原生文字；
+   `TEXT_SOURCE: ocr` 为 Tesseract 机器识别扫描图像，**不是"原文等价物"**，
+   可能存在识别误差（尤其中文标点、相似字形、表格线、公式、原理图中的文字）。
+   涉及芯片型号 / 引脚 / 寄存器 / bit 位 / 地址 / 数字 / 公式 / 表格 / 原理图 /
+   程序代码的关键结论，应回原始 PDF 页面核验。
+
+8. **OCR 构建耗时**：首次全仓库构建需对约 2000+ 扫描/稀疏页做本地 OCR
+   （约 1~2 小时量级，视 runner 而定），之后命中 `.ai-cache` 的文档秒级复用；
+   Actions 单 job 上限 6 小时，当前余量充足。若未来 PDF 数量大幅增长，
+   需重新测量并考虑分片并行，而不是悄悄删功能。
+
+9. **稀疏阈值取舍**：`MIN_EMBEDDED_CHARS = 24` 意味着"只有页眉/页码的插图页"
+   （如《普中开发攻略》16 个 ~30 字符页）保留 embedded 而不 OCR——
+   有意为之，避免把图片页 OCR 后假装正文可靠；页面真实字符数在
+   blocks JSON（`embedded_char_count`）与 manifest 中可见。

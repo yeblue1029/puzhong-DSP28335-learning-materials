@@ -13,7 +13,9 @@ on:
       - '**/*.pdf'
       - '**/*.PDF'
       - '.gitattributes'
+      - '.gitignore'
       - 'README.md'
+      - 'AI_ACCESS.md'
       - 'viewer/**'
       - 'scripts/**'
       - '.github/workflows/pdf-site.yml'
@@ -59,6 +61,48 @@ jobs:
           PAGES_BASE_URL: https://${{ steps.coords.outputs.owner }}.github.io/${{ steps.coords.outputs.name }}
         run: node scripts/scan-pdfs.mjs
 
+      # ---------- AI Reading Path (web-chat-AI-readable derivative text) ------
+      # Cache key = extractor version (+ run id so every run re-saves);
+      # restore-keys reuse per-doc entries whose source SHA256 + extractor
+      # version + OCR config match — cache is a performance optimization only,
+      # cache misses always rebuild fully and correctly.
+      - name: Restore AI docs OCR cache
+        uses: actions/cache@v4
+        with:
+          path: .ai-cache
+          key: ai-docs-v1-${{ hashFiles('scripts/build-ai-docs.py') }}-${{ github.run_id }}
+          restore-keys: |
+            ai-docs-v1-${{ hashFiles('scripts/build-ai-docs.py') }}-
+            ai-docs-v1-
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyMuPDF
+        run: pip install pymupdf==1.28.2
+
+      - name: Install Tesseract OCR (chi_sim + eng, fully local — no cloud OCR)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+          tesseract --version
+          tesseract --list-langs
+
+      - name: Build AI docs (native text first + OCR fallback, from ORIGINAL PDFs)
+        env:
+          REPO_OWNER: ${{ steps.coords.outputs.owner }}
+          REPO_NAME: ${{ steps.coords.outputs.name }}
+          REPO_BRANCH: ${{ github.ref_name }}
+          PAGES_BASE_URL: https://${{ steps.coords.outputs.owner }}.github.io/${{ steps.coords.outputs.name }}
+          GIT_COMMIT: ${{ github.sha }}
+          AI_CACHE_DIR: ${{ github.workspace }}/.ai-cache
+        run: python3 scripts/build-ai-docs.py
+
+      - name: Verify AI docs (JSON / links / page counts / UTF-8 / LFS guard)
+        run: python3 scripts/verify-ai-docs.py
+
       - name: Verify build artifact
         run: |
           echo "PDF count in index: $(node -e "console.log(require('./viewer/pdf-index.json').pdf_count)")"
@@ -66,8 +110,12 @@ jobs:
           test -f viewer/web/viewer.html
           test -f viewer/build/pdf.mjs
           test -f viewer/build/pdf.worker.mjs
+          test -f viewer/ai/index.json
+          test -f viewer/ai/index.html
+          test -f viewer/ai/AI_USAGE.txt
           echo "Artifact contents:"
           ls -la viewer
+          du -sh viewer/ai || true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

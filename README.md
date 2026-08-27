@@ -39,6 +39,33 @@ file manual.pdf   # -> PDF document
 
 完整清单见 [`viewer/pdf-index.json`](viewer/pdf-index.json)，包含每个 PDF 的 `viewer_url` / `raw_url` / `github_url`。架构与维护说明见 [`viewer/MAINTENANCE.md`](viewer/MAINTENANCE.md)。
 
+## 🤖 AI / LLM 文档读取（Web Chat AI 专用入口）
+
+ChatGPT / Gemini / DeepSeek 等网页聊天 AI 可能无法可靠读取 raw PDF 二进制，或无法执行 PDF.js。
+为此本仓库提供一套**AI Reading Path**：由 CI 从原始 PDF 自动派生的纯文本层
+（原生文字优先 + 扫描页 OCR 兜底，每页标记 `TEXT_SOURCE`）。
+
+**机器入口（纯 JSON，无需 JavaScript）**：
+
+```
+https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/index.json
+```
+
+**人类可读入口**：`https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/`
+
+三种访问方式：
+
+```text
+Human        → PDF.js Viewer（在线阅读，体验不变）
+Web Chat AI  → /ai/index.json → ai_full_text_url / ai_pages_base_url / ai_blocks_base_url
+Agent/Script → original_raw_url（raw.githubusercontent.com 原始 PDF）
+```
+
+⚠️ **Web Chat AI 不再默认 raw PDF 优先**：请先读 [`AI_ACCESS.md`](AI_ACCESS.md)
+（仓库根目录，AI 访问契约：文本来源等级 / OCR 警示 / 失败规则），
+再进入 `/ai/`。OCR 页（`TEXT_SOURCE: ocr`）为机器识别文本，不是"原文等价物"，
+关键结论应回原始 PDF 核验。
+
 ## 开发环境
 
 - Target device: TMS320F28335
