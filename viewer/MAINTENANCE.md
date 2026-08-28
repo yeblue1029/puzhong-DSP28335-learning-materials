@@ -24,17 +24,20 @@ GitHub Pages（viewer/ 整目录发布）
   ├─ web/                Mozilla PDF.js 官方预构建 viewer（精简版）
   ├─ build/              pdf.mjs / pdf.worker.mjs / pdf.sandbox.mjs
   └─ ai/                 AI Reading Path（build-ai-docs.py 生成的派生文本）
-        ├─ index.html    无 JS 依赖的静态文档列表
-        ├─ index.json    机器入口（Web Chat AI 首选）
+        ├─ index.html    无 JS 依赖的静态文档列表（Web Chat AI 首选入口）
+        ├─ index.json    机器入口（Agent / Script 用）
         ├─ AI_USAGE.txt  纯文本使用说明
-        └─ docs/<doc_id>/ manifest.json + full.txt + full.html
-                          + pages/0001.txt … + blocks/0001.json …
+        └─ docs/<doc_id>/ index.html（landing page）+ manifest.json
+                          + full.txt + full.html
+                          + pages/index.html + pages/0001.txt …
+                          + blocks/index.html + blocks/0001.json …
         │
         ▼
   浏览器：index.html → 在线阅读链接 → web/viewer.html?file=<raw URL>
           PDF.js 通过 fetch 跨域读取 raw（CORS 已开启）→ canvas 渲染
   网页聊天 AI（ChatGPT/Gemini/DeepSeek）：README → AI_ACCESS.md
-          → /ai/index.json → 派生文本（不再默认 raw PDF 优先）
+          → /ai/（静态 HTML）→ 文档 landing page → full.txt / pages / blocks
+          （沿真实 <a href> 逐页点击，不要求自行拼接 URL）
 ```
 
 **三种访问路径（务必区分）**
@@ -42,8 +45,8 @@ GitHub Pages（viewer/ 整目录发布）
 | 路径 | 入口 | 说明 |
 | --- | --- | --- |
 | Human | `viewer/index.html` → PDF.js | 人工阅读，体验不变 |
-| Web Chat AI | README → `AI_ACCESS.md` → `/ai/index.json` → AI text | 网页聊天 AI 无法可靠读 raw PDF / 执行 PDF.js，走派生文本层 |
-| Agent / Script | `raw.githubusercontent.com` 原始 PDF | 有二进制下载 + 本地 PDF parser 的环境直接解析源头 |
+| Web Chat AI | README → `AI_ACCESS.md` → `/ai/`（静态 HTML）→ 文档 landing page → full.txt / pages / blocks | 网页聊天 AI 无法可靠读 raw PDF / 执行 PDF.js，也可能无法从 JSON 构造 URL 并 fetch，因此走「真实 HTML hyperlink 导航 + 派生文本层」 |
+| Agent / Script | `/ai/index.json`（机器接口）或 `raw.githubusercontent.com` 原始 PDF | 有任意 HTTP fetch / 二进制下载 + 本地 PDF parser 的环境直接解析源头 |
 
 **关键设计决策**
 
@@ -165,20 +168,29 @@ node scripts/scan-pdfs.mjs
 
 ## 五点五、AI Reading Path（`scripts/build-ai-docs.py`）
 
-网页聊天 AI（ChatGPT / Gemini / DeepSeek 等）能打开 GitHub、读 HTML/TXT/JSON，
-但可能无法可靠读取 raw PDF 二进制，也无法执行 PDF.js 取得正文。因此本仓库
-新增一套**派生文本层**：CI 从原始 PDF 自动生成网页聊天 AI 容易读取的
-TXT / HTML / page TXT / block JSON / metadata。
+网页聊天 AI（ChatGPT / Gemini / DeepSeek 等）能打开 GitHub、读 HTML/TXT，
+但可能无法可靠读取 raw PDF 二进制，无法执行 PDF.js 取得正文，也**可能无法
+从 JSON 字符串自行构造 URL 并发起 fetch**（Web Chat 工具对机器接口 URL 有
+safe-to-open / Internal Error 类限制）。因此本仓库提供一套**派生文本层 +
+静态 HTML hyperlink 导航**：CI 从原始 PDF 自动生成网页聊天 AI 容易读取的
+TXT / HTML / page TXT / block JSON / metadata，并把全部入口组织成真实
+`<a href>` 链接链。
 
-**发现链路（自动路由验收路径）**：
+**发现链路（Web Chat AI，HTML-first hyperlink 导航）**：
 
 ```text
-GitHub repository → README.md（🤖 AI / LLM 章节）
+GitHub repository → README.md（🤖 Agent / LLM 章节）
 → AI_ACCESS.md（仓库根目录，AI 访问契约）
-→ /ai/index.json（机器入口，纯 JSON，无需 JS）
-→ 按 title / display_title / source_path / match_key 定位文档
-→ ai_full_text_url（full.txt）→ pages/（当前页/前页/后页）→ blocks/（必要时）
+→ /ai/（静态 HTML 文档列表，入口 URL 为真实 Markdown hyperlink）
+→ 点击文档标题 → docs/<doc_id>/index.html（landing page）
+→ full.txt / full.html / pages/index.html / blocks/index.html
+→ 点击目标页链接 → pages/NNNN.txt / blocks/NNNN.json
+（每一跳的 URL 都来自上一页真实 <a href>，不要求自行拼接）
 ```
+
+**Agent / Script 链路（机器接口）**：`/ai/index.json`（含每文档全部绝对 URL）
+或 `raw.githubusercontent.com` 原始 PDF，适用于支持任意 HTTP fetch /
+二进制下载 / 本地 PDF parser 的环境。
 
 **每页提取策略（Native Text First + OCR Fallback）**：
 
@@ -220,22 +232,41 @@ PDF page → PyMuPDF embedded text → 稀疏判定（有意义字符 < 24，阈
 
 ```
 viewer/ai/
-├── index.html            静态文档列表（HTML 源码即含核心信息，无 JS 依赖）
+├── index.html            静态文档列表（HTML 源码即含核心信息，无 JS 依赖；
+│                         每文档标题链接 → docs/<doc_id>/index.html landing）
 ├── index.json            机器入口（schema_version=1 / documents[] / 绝对 URL）
-├── AI_USAGE.txt          纯文本使用说明（含 TEXT_SOURCE 语义与 OCR 警示）
-├── build-report.json     构建真实统计（PDF 数 / 页数 / OCR 耗时 / 体积）
+├── AI_USAGE.txt          纯文本使用说明（HTML-first 导航 + TEXT_SOURCE 语义）
+├── build-report.json     构建真实统计（PDF 数 / 页数 / OCR 耗时 / 体积 / 缓存命中）
 └── docs/<doc_id>/
+    ├── index.html        landing page（标题 / doc_id / 页数 / 状态 / SHA256
+    │                     + 全部入口真实链接：full / pages / blocks / manifest /
+    │                     GitHub / raw / Viewer，无 JS）
     ├── manifest.json     元数据（SHA256 / 页数 / 来源统计 / 引擎版本 / 状态）
     ├── full.txt          全文（PDF_PAGE 分隔 + TEXT_SOURCE 标记）
-    ├── full.html         静态 HTML 全文（anchor: #pdf-page-NNNN，无 JS）
+    ├── full.html         静态 HTML 全文（anchor: #pdf-page-NNNN，无 JS；
+    │                     每页页头附 Page TXT / Blocks JSON 真实链接）
+    ├── pages/index.html  页目录：0001.txt … NNNN.txt 全部为真实链接
     ├── pages/0001.txt    每物理页一个 TXT（页级读取：当前/前/后页）
+    ├── blocks/index.html 块目录：0001.json … NNNN.json 全部为真实链接
     └── blocks/0001.json  每页版面块（bbox + 文本 + block_source）
 ```
 
+**HTML 导航文件的缓存语义**：`landing / pages 目录 / blocks 目录 / full.html`
+由 `regenerate_nav_files()` 在**每次构建**时重新生成（缓存命中时从已落盘的
+`pages/*.txt` 解析重建），因此更新 HTML 模板**不需要**递增
+`EXTRACTOR_VERSION`、不会使 OCR 缓存失效（纯导航模板变化 ≠ 提取行为变化）。
+
 **验证**：`python3 scripts/verify-ai-docs.py` 检查 JSON 语法、链接、页数一致、
 必需文件、UTF-8、SHA256、`%PDF-`、LFS pointer、extraction status 一致性、
-URL 卫生（不引用本地路径）、index.html 静态源码完整性。失败即退出码 1，
-CI 会阻断部署。
+URL 卫生（不引用本地路径）、index.html 静态源码完整性，以及**导航图验证
+（12 A–H）**：README / AI_ACCESS / viewer 首页入口链接为真实静态 hyperlink、
+每文档 landing / pages / blocks 目录页链接齐全且目标存在、full.html 页级
+链接齐全。失败即退出码 1，CI 会阻断部署。
+
+**链接链验收**：`python3 scripts/test-ai-linkchain.py`（CI 部署后自动运行，
+也可本地运行）模拟 Web Chat AI 导航：从 `/ai/` 出发，每一跳 URL 均从上一页
+真实 `<a href>` 解析，禁止自行拼接 doc_id / 页号；默认对三本 DSP 专项书做
+全链验收（普中开发攻略第14章检索 / 手把手 page 0148 / C和指针 doc_id 实查）。
 
 本地手动重建（调试用，需要 `pip install pymupdf` 与本地 tesseract）：
 
@@ -255,7 +286,9 @@ python3 scripts/verify-ai-docs.py      # 验证
 → 恢复 `.ai-cache` → 安装 Python + PyMuPDF + Tesseract（chi_sim + eng）
 → `scripts/build-ai-docs.py` 生成 `viewer/ai/` → `scripts/verify-ai-docs.py` 验证
 → 用 `actions/upload-pages-artifact` 打包 `viewer/`（含 `ai/`）
-→ `actions/deploy-pages` 发布到 GitHub Pages。
+→ `actions/deploy-pages` 发布到 GitHub Pages
+→ `scripts/test-ai-linkchain.py` 对刚部署的站点做真实 hyperlink 链验收
+（每一跳 URL 均从上一页 `<a href>` 解析，三本 DSP 专项书全链）。
 
 日常只需 `git add` → `git commit` → `git push`，在线文档中心即自动更新。
 

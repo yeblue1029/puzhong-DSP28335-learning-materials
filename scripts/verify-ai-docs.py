@@ -19,19 +19,38 @@ verify-ai-docs.py — 验证 build-ai-docs.py 的输出，CI 中作为独立关�
  10. URL 卫生：index.json 中的 ai_*_url 全部为绝对 HTTPS 且指向本 Pages 站点，
      不引用本地路径（file:// / /data/ 等）
  11. index.html：静态源码中包含每文档标题与关键链接（不依赖 JS 渲染列表）
+ 12. 导航图验证（Web Chat AI HTML-first hyperlink navigation）：
+     A. README.md：/ai/ 是真实 Markdown hyperlink；AI_ACCESS.md 是真实 link；
+        Web Chat AI 不再被描述为 raw-first；index.json 不再是 Web Chat AI
+        唯一首入口（定位为 Agent / Script 机器入口）
+     B. AI_ACCESS.md：/ai/ 是真实 hyperlink；HTML-first 规则存在；
+        JSON 定位为机器 / Agent 路径
+     C. viewer/index.html：静态源码存在 href="ai/"（不是 JS 动态插入）
+     D. /ai/index.html：每个可读文档有 landing page 链接且目标文件存在
+     E. 每文档 landing page（docs/<doc_id>/index.html）：
+        full.txt / full.html / manifest.json / pages/index.html /
+        blocks/index.html 均为真实 href 且目标文件存在；页面全部本站
+        href 目标存在；无 <script>（核心内容不依赖 JS）
+     F. pages/index.html：NNNN.txt 链接数量 == pdf_page_count，
+        0001..N 全部存在，全部为真实静态链接
+     G. blocks/index.html：NNNN.json 每页链接存在
+     H. full.html：每页 Page TXT / Blocks JSON 链接目标存在
 
 用法：python3 scripts/verify-ai-docs.py
 退出码：0 = 全部通过；1 = 存在失败项（CI 会阻断部署）。
 """
 
+import html as html_mod
 import json
 import os
 import re
 import sys
+from urllib.parse import unquote
 
 REPO_ROOT = os.environ.get("AI_ROOT") or os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.environ.get("AI_OUT_DIR") or os.path.join(REPO_ROOT, "viewer", "ai")
+SITE_ROOT = os.path.join(REPO_ROOT, "viewer")   # Pages 站点根 ↔ viewer/
 REPO_OWNER = os.environ.get("REPO_OWNER", "yeblue1029")
 REPO_NAME = os.environ.get("REPO_NAME", "puzhong-DSP28335-learning-materials")
 PAGES_BASE_URL = (os.environ.get("PAGES_BASE_URL")
@@ -58,6 +77,140 @@ def ok(msg):
 def read_utf8(path):
     with open(path, encoding="utf-8") as f:
         return f.read()
+
+
+# ------------------------------------------------ 导航图工具（12 A–H 用）--
+
+def strip_scripts(html_text: str) -> str:
+    """移除 <script> 块：静态验证只承认源码中真实存在的链接。"""
+    return re.sub(r"<script\b[^>]*>.*?</script>", "", html_text,
+                  flags=re.S | re.I)
+
+
+def extract_static_hrefs(html_text: str):
+    """提取静态 HTML 源码（去 script 后）中全部真实 <a href> 值。"""
+    hrefs = []
+    for m in re.finditer(r'<a\b[^>]*?\bhref\s*=\s*["\']([^"\']+)["\']',
+                         strip_scripts(html_text), re.I):
+        hrefs.append(html_mod.unescape(m.group(1)))
+    return hrefs
+
+
+def href_to_local_path(href: str, page_dir: str, site_root: str = None):
+    """href → 本站本地文件路径。
+
+    - 相对 href：相对 page_dir（当前 HTML 文件所在目录）解析（URL 解码后）；
+    - 本站绝对 URL（PAGES_BASE_URL 开头）：剥离站点前缀后相对 site_root
+      （默认 SITE_ROOT，即 Pages 站点根 ↔ viewer/）解析；
+    - 外站 URL（github.com / raw.githubusercontent.com 等）与纯锚点：
+      返回 None（不做本地存在性检查）。
+    viewer/web/（PDF.js 资产）由 CI 构建时拉取、不落仓库，调用方应跳过
+    其存在性检查（见 12E）。
+    """
+    if site_root is None:
+        site_root = SITE_ROOT
+    if not href or href.startswith("#"):
+        return None
+    h = href.split("#", 1)[0].split("?", 1)[0]
+    if not h:
+        return None
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", h):
+        if h == PAGES_BASE_URL:
+            h = ""
+        elif h.startswith(PAGES_BASE_URL + "/"):
+            h = h[len(PAGES_BASE_URL) + 1:]
+        else:
+            return None
+        base = site_root
+    else:
+        base = page_dir
+    if not h:
+        return base
+    return os.path.normpath(os.path.join(base, unquote(h)))
+
+
+def check_repo_nav_docs():
+    """12 A/B/C：仓库级导航入口文档（README / AI_ACCESS / viewer 首页）。"""
+    print("[verify-ai-docs] ---- 12 A/B/C: 仓库入口文档导航 ----")
+
+    # ---- A. README.md ----
+    readme_p = os.path.join(REPO_ROOT, "README.md")
+    if not os.path.isfile(readme_p):
+        err("A: 缺少 README.md")
+        return
+    t = read_utf8(readme_p)
+    m = re.search(r"\[[^\]]*\]\(\s*(https?://[^\s)]*?/ai/?)\s*\)", t)
+    if not m:
+        err("A: README.md 中 /ai/ 入口不是真实 Markdown hyperlink")
+    else:
+        ok(f"A: README.md /ai/ 为真实 Markdown hyperlink → {m.group(1)}")
+    if not re.search(r"\[[^\]]*AI_ACCESS[^\]]*\]\(\s*AI_ACCESS\.md\s*\)", t):
+        err("A: README.md 中 AI_ACCESS.md 不是真实 Markdown link")
+    else:
+        ok("A: README.md AI_ACCESS.md 为真实 Markdown link")
+    if "Agent / 脚本获取原始 PDF" not in t:
+        err("A: README.md 缺『Agent / 脚本获取原始 PDF』定位（raw 入口归属 Agent）")
+    if re.search(r"AI\s*/\s*脚本获取原始\s*PDF", t):
+        err("A: README.md 仍存在误导性标题『AI / 脚本获取原始 PDF』")
+    bad_nav = False
+    for line in t.splitlines():
+        if "Web Chat AI" in line and "→" in line:
+            if "index.json" in line:
+                err(f"A: Web Chat AI 访问路径仍指向 index.json: "
+                    f"{line.strip()[:90]}")
+                bad_nav = True
+            if "/ai/" not in line:
+                err(f"A: Web Chat AI 访问路径未指向 /ai/ 静态 HTML: "
+                    f"{line.strip()[:90]}")
+                bad_nav = True
+    if not bad_nav:
+        ok("A: README.md 三种访问方式中 Web Chat AI 为 /ai/ HTML-first")
+    idx_positions = [mm.start() for mm in re.finditer(r"index\.json", t)]
+    if not idx_positions:
+        err("A: README.md 未提及 index.json 机器入口")
+    elif not any("Agent" in t[max(0, p - 300):p + 300]
+                 for p in idx_positions):
+        err("A: README.md 中 index.json 未定位为 Agent / Script 机器入口")
+    else:
+        ok("A: README.md index.json 定位为 Agent / Script 机器入口")
+
+    # ---- B. AI_ACCESS.md ----
+    acc_p = os.path.join(REPO_ROOT, "AI_ACCESS.md")
+    if not os.path.isfile(acc_p):
+        err("B: 缺少 AI_ACCESS.md")
+    else:
+        t = read_utf8(acc_p)
+        m = re.search(r"\[[^\]]*\]\(\s*(https?://[^\s)]*?/ai/?)\s*\)", t)
+        if not m:
+            err("B: AI_ACCESS.md 中 /ai/ 入口不是真实 hyperlink")
+        else:
+            ok(f"B: AI_ACCESS.md /ai/ 为真实 hyperlink → {m.group(1)}")
+        for kw, desc in (
+                ("<a href>", "HTML-first 导航规则（真实 <a href>）"),
+                ("不要求根据 JSON 字符串自行拼接 URL", "禁止自行拼 URL 声明"),
+                ("机器接口", "index.json 机器接口定位"),
+                ("Source of Truth", "原始 PDF Source of Truth 声明"),
+                ("raw.githubusercontent.com", "raw PDF 非默认入口说明")):
+            if kw not in t:
+                err(f"B: AI_ACCESS.md 缺{desc}")
+        if not re.search(r"Agent\s*/\s*Script", t):
+            err("B: AI_ACCESS.md 未把 JSON 入口定位为 Agent / Script 路径")
+        else:
+            ok("B: AI_ACCESS.md JSON 定位为 Agent / Script 机器路径")
+
+    # ---- C. viewer/index.html ----
+    vp = os.path.join(REPO_ROOT, "viewer", "index.html")
+    if not os.path.isfile(vp):
+        err("C: 缺少 viewer/index.html")
+    else:
+        t = read_utf8(vp)
+        static = strip_scripts(t)
+        found = ('href="ai/"' in static) or ("href='ai/'" in static)
+        if not found:
+            err('C: viewer/index.html 静态源码缺少 <a href="ai/">'
+                "（核心内容不能依赖 JS 动态插入）")
+        else:
+            ok('C: viewer/index.html 静态源码含 <a href="ai/">')
 
 
 def check_json_file(path):
@@ -104,8 +257,9 @@ def main():
         "title", "display_title", "filename", "source_path", "match_key",
         "doc_id", "pdf_page_count", "source_sha256", "extraction_status",
         "embedded_page_count", "ocr_page_count", "empty_page_count",
-        "ai_full_text_url", "ai_full_html_url", "ai_pages_base_url",
-        "ai_blocks_base_url", "manifest_url", "original_github_url",
+        "ai_doc_index_url", "ai_full_text_url", "ai_full_html_url",
+        "ai_pages_base_url", "ai_pages_index_url", "ai_blocks_base_url",
+        "ai_blocks_index_url", "manifest_url", "original_github_url",
         "original_raw_url", "viewer_url",
     ]
 
@@ -129,18 +283,20 @@ def main():
             err(f"{tag}: source_sha256 非 64 位十六进制")
 
         # ---- 10. URL 卫生 ----
-        for field in ("ai_full_text_url", "ai_full_html_url",
-                      "ai_pages_base_url", "ai_blocks_base_url",
-                      "manifest_url", "viewer_url", "original_github_url",
-                      "original_raw_url"):
+        for field in ("ai_doc_index_url", "ai_full_text_url",
+                      "ai_full_html_url", "ai_pages_base_url",
+                      "ai_pages_index_url", "ai_blocks_base_url",
+                      "ai_blocks_index_url", "manifest_url", "viewer_url",
+                      "original_github_url", "original_raw_url"):
             u = d.get(field, "")
             if not u.startswith("https://"):
                 err(f"{tag}: {field} 不是绝对 HTTPS: {u!r}")
             if "file://" in u or u.startswith("/") or "/data/" in u:
                 err(f"{tag}: {field} 引用本地路径: {u!r}")
-        for field in ("ai_full_text_url", "ai_full_html_url",
-                      "ai_pages_base_url", "ai_blocks_base_url",
-                      "manifest_url"):
+        for field in ("ai_doc_index_url", "ai_full_text_url",
+                      "ai_full_html_url", "ai_pages_base_url",
+                      "ai_pages_index_url", "ai_blocks_base_url",
+                      "ai_blocks_index_url", "manifest_url"):
             u = d.get(field, "")
             if not u.startswith(PAGES_BASE_URL + "/ai/"):
                 err(f"{tag}: {field} 不在 /ai/ 路径下: {u!r}")
@@ -226,6 +382,46 @@ def main():
 
         # ---- 3. 页文件连续性 ----
         n = m.get("pdf_page_count", 0)
+
+        # ---- 12E. landing page（docs/<doc_id>/index.html）真实链接 ----
+        landing_p = os.path.join(doc_dir, "index.html")
+        if not os.path.isfile(landing_p):
+            err(f"{tag}: E: 缺 landing page index.html")
+        else:
+            try:
+                lt = read_utf8(landing_p)
+                if re.search(r"<script\b", lt, re.I):
+                    err(f"{tag}: E: landing page 含 <script>（核心内容须无 JS）")
+                lhrefs = extract_static_hrefs(lt)
+                lpaths = {href_to_local_path(h, doc_dir) for h in lhrefs}
+                for rel in ("full.txt", "full.html", "manifest.json",
+                            "pages/index.html", "blocks/index.html"):
+                    tp = os.path.normpath(os.path.join(doc_dir, rel))
+                    if tp not in lpaths:
+                        err(f'{tag}: E: landing 缺真实链接 href="{rel}"')
+                for h in lhrefs:
+                    lp = href_to_local_path(h, doc_dir)
+                    if lp is None:
+                        continue
+                    try:
+                        rel_site = os.path.relpath(lp, SITE_ROOT)
+                    except ValueError:
+                        rel_site = ""
+                    # PDF.js 资产（viewer/web、viewer/build）由 CI 构建时拉取、
+                    # 不落仓库，本地不做存在性检查
+                    if rel_site.split(os.sep, 1)[0] in ("web", "build"):
+                        continue
+                    if not os.path.exists(lp):
+                        err(f"{tag}: E: landing 链接目标不存在: {h}")
+                ext_kinds = sum(
+                    1 for h in lhrefs
+                    if h.startswith("https://github.com/")
+                    or h.startswith("https://raw.githubusercontent.com/"))
+                if ext_kinds < 2:
+                    err(f"{tag}: E: landing 缺原始 PDF（GitHub / raw）链接")
+            except UnicodeDecodeError:
+                err(f"{tag}: E: landing page 非 UTF-8")
+
         if n > 0:
             expected = {f"{p:04d}.txt" for p in range(1, n + 1)}
             actual = {f for f in os.listdir(pages_dir) if f.endswith(".txt")}
@@ -238,6 +434,57 @@ def main():
             actual_b = {f for f in os.listdir(blocks_dir) if f.endswith(".json")}
             if actual_b != expected_b:
                 err(f"{tag}: blocks/ 编号不连续")
+
+            # ---- 12F/G. pages/ 与 blocks/ 目录页真实链接 ----
+            for kind, ext in (("pages", "txt"), ("blocks", "json")):
+                ip = os.path.join(doc_dir, kind, "index.html")
+                if not os.path.isfile(ip):
+                    err(f"{tag}: {kind}/index.html 缺失")
+                    continue
+                try:
+                    it = read_utf8(ip)
+                except UnicodeDecodeError:
+                    err(f"{tag}: {kind}/index.html 非 UTF-8")
+                    continue
+                if re.search(r"<script\b", it, re.I):
+                    err(f"{tag}: {kind}/index.html 含 <script>")
+                pat = re.compile(rf"^(\d{{4}})\.{ext}$")
+                nums = set()
+                for h in extract_static_hrefs(it):
+                    mm = pat.match(h.rsplit("/", 1)[-1])
+                    if not mm:
+                        continue
+                    nums.add(int(mm.group(1)))
+                    tgt = os.path.join(doc_dir, kind, h)
+                    if not os.path.isfile(tgt):
+                        err(f"{tag}: {kind}/index.html 链接目标不存在: {h}")
+                expected_nums = set(range(1, n + 1))
+                if nums != expected_nums:
+                    miss = sorted(expected_nums - nums)[:5]
+                    extra_n = sorted(nums - expected_nums)[:5]
+                    err(f"{tag}: {kind}/index.html 页链接不全: "
+                        f"count={len(nums)}/{n} missing={miss} extra={extra_n}")
+
+            # ---- 12H. full.html 页级真实链接 ----
+            fh_p = os.path.join(doc_dir, "full.html")
+            if os.path.isfile(fh_p):
+                try:
+                    ft = strip_scripts(read_utf8(fh_p))
+                    for kind, ext in (("pages", "txt"), ("blocks", "json")):
+                        nums = set(int(x) for x in re.findall(
+                            rf'href="{kind}/(\d{{4}})\.{ext}"', ft))
+                        expected_nums = set(range(1, n + 1))
+                        if nums != expected_nums:
+                            miss = sorted(expected_nums - nums)[:5]
+                            err(f"{tag}: H: full.html {kind}/ 链接不全: "
+                                f"count={len(nums)}/{n} missing={miss}")
+                        for pno in sorted(nums):
+                            if not os.path.isfile(os.path.join(
+                                    doc_dir, kind, f"{pno:04d}.{ext}")):
+                                err(f"{tag}: H: full.html 链接目标不存在: "
+                                    f"{kind}/{pno:04d}.{ext}")
+                except UnicodeDecodeError:
+                    pass  # 已在 5. UTF-8 检查中报告
 
             # ---- 5. UTF-8 + 4. 分隔符数量 ----
             try:
@@ -302,7 +549,7 @@ def main():
         else:
             warn(f"{tag}: pdf_page_count=0")
 
-    # ---- 11. index.html 静态源码 ----
+    # ---- 11 + 12D. index.html 静态源码 + 每文档 landing 链接 ----
     try:
         ih = read_utf8(os.path.join(OUT_DIR, "index.html"))
         for d in docs[:50]:
@@ -313,19 +560,50 @@ def main():
             ok("index.html 源码包含文档标题（无需 JS）")
         if "index.json" not in ih:
             err("index.html 未指向 index.json")
+        # 12D：每个可读文档有 landing page 链接且目标存在
+        ih_hrefs = extract_static_hrefs(ih)
+        resolved = set()
+        for h in ih_hrefs:
+            lp = href_to_local_path(h, OUT_DIR)
+            if lp:
+                resolved.add(lp)
+        want = {}
+        for d in docs:
+            if d.get("extraction_status") in ("invalid_pdf",
+                                              "lfs_not_materialized"):
+                continue
+            want[os.path.normpath(
+                os.path.join(OUT_DIR, "docs", str(d.get("doc_id")),
+                             "index.html"))] = d
+        d_ok = 0
+        for lp, d in want.items():
+            if lp not in resolved:
+                err(f"D: index.html 缺 landing 链接: docs/{d.get('doc_id')}"
+                    "/index.html")
+            elif not os.path.isfile(lp):
+                err(f"D: landing 文件不存在: docs/{d.get('doc_id')}"
+                    "/index.html")
+            else:
+                d_ok += 1
+        if d_ok == len(want) and want:
+            ok(f"D: index.html landing 链接 {d_ok}/{len(want)} 且目标存在")
     except FileNotFoundError:
-        pass
+        err("缺少 viewer/ai/index.html")
 
     # ---- AI_USAGE.txt ----
     try:
         au = read_utf8(os.path.join(OUT_DIR, "AI_USAGE.txt"))
         for kw in ("TEXT_SOURCE", "embedded", "ocr", "index.json",
-                   "不是", "核验"):
+                   "不是", "核验", "<a href>",
+                   "不要求根据 JSON 字符串自行拼接 URL", "landing page"):
             if kw not in au:
                 err(f"AI_USAGE.txt 缺关键说明: {kw}")
-        ok("AI_USAGE.txt 内容完整")
+        ok("AI_USAGE.txt 内容完整（HTML-first）")
     except FileNotFoundError:
         pass
+
+    # ---- 12 A/B/C. 仓库入口文档导航（README / AI_ACCESS / viewer）----
+    check_repo_nav_docs()
 
     # ---- 汇总 ----
     print(f"\n[verify-ai-docs] ===== 结果 =====")

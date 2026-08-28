@@ -77,6 +77,11 @@
   .err{padding:40px 16px;color:var(--danger)}
   details.note{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:18px 0}
   details.note summary{cursor:pointer;color:var(--warn);font-weight:600}
+  .aibar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(88,166,255,.12),rgba(63,185,80,.08));border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:16px 0 0;box-shadow:var(--shadow)}
+  .aibar a.ai{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-weight:700;font-size:14px;color:#0f1419;background:var(--accent);border-radius:8px;padding:8px 14px;transition:.15s}
+  .aibar a.ai:hover{box-shadow:0 4px 14px rgba(88,166,255,.4);transform:translateY(-1px)}
+  .aibar .hint{color:var(--muted);font-size:12.5px;line-height:1.6}
+  .aibar .hint code{background:var(--panel2);padding:1px 6px;border-radius:5px;color:var(--text)}
   @media(max-width:680px){
     th.col-dir,td.col-dir{display:none}
     h1{font-size:23px}
@@ -90,12 +95,17 @@
     <h1>DSP28335 学习资料 PDF 文档中心</h1>
     <p class="lead">普中 DSP28335 / TI TMS320F28335 学习资料在线文档中心。在浏览器中直接在线阅读仓库内全部 PDF（翻页 / 缩放 / 搜索 / 缩略图 / 下载 / 打印），同时为每个文档保留可被云端 AI 与脚本直接获取的原始 PDF 链接。静态站点，无需登录。</p>
   </header>
+  <div class="aibar">
+    <a class="ai" href="ai/">🤖 AI Reading Path</a>
+    <span class="hint">ChatGPT / Gemini / DeepSeek 等网页聊天 AI 请沿此静态 HTML 链接导航读取 PDF 派生正文（文档列表 → 文档页面 → full.txt / pages / blocks，全部为真实可点击链接）。Agent / 脚本可用机器接口 <code>ai/index.json</code>。</span>
+  </div>
   <div class="stats" id="stats"></div>
   <details class="note">
-    <summary>关于 AI / 脚本如何获取原始 PDF</summary>
+    <summary>关于 Agent / 脚本如何获取原始 PDF</summary>
     <p style="margin:10px 0 4px;color:var(--text)">
-      每个文档的 <b>原始 PDF</b> 指向 <code>raw.githubusercontent.com</code>，无需执行 JavaScript 即可经 HTTP 获取，
-      返回真实 PDF 二进制（已开启 CORS、支持 HTTP Range 分段请求）。<br/>
+      每个文档的 <b>原始 PDF</b> 指向 <code>raw.githubusercontent.com</code>，适用于具备真实 HTTP
+      二进制下载与本地 PDF parser 的 <b>Agent / 脚本环境</b>（已开启 CORS、支持 HTTP Range 分段请求）。<br/>
+      普通网页聊天 AI（ChatGPT / Gemini / DeepSeek 等）请使用上方 <b>AI Reading Path</b> 静态 HTML 链接导航读取派生正文。<br/>
       本仓库无 Git-LFS 跟踪文件，所有 PDF 均可通过 raw 正常获取。
     </p>
   </details>

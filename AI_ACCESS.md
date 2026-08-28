@@ -7,40 +7,56 @@
 ## 一句话规则
 
 **Web Chat AI 读取本仓库 PDF 时，不要默认优先访问 `raw.githubusercontent.com`，
-先读取机器入口 `index.json`：**
+首先打开静态 HTML 入口并沿真实链接导航：**
 
-```
-https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/index.json
-```
+[https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/](https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/)
 
-它是无需 JavaScript 即可直接 HTTP GET 的纯 JSON，包含全部 PDF 的
-派生文本 URL 与元数据。
+导航方式：**上一个网页中的真实 `<a href>` → 打开 → 下一个网页中的真实 `<a href>` → 打开**。
+即：AI Reading Path 首页（文档列表）→ 文档 landing page → full.txt / full.html /
+Pages 目录 / Blocks 目录 → 单页 TXT / block JSON。
+
+**不要求根据 JSON 字符串自行拼接 URL。** 如果你的环境只能打开网页链接、
+不能对任意构造的 URL 发起 fetch，就沿页面里的真实 hyperlink 走。
+`index.json` 是机器接口（见下文 Agent / Script 一节）。
 
 ## 三种访问方式
 
 | 访问者 | 推荐路径 | 说明 |
 | --- | --- | --- |
 | **Human（人工）** | PDF.js 在线阅读器<br>`https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/` | 翻页 / 缩放 / 搜索 / 缩略图，体验不变 |
-| **Web Chat AI**<br>（ChatGPT / Gemini / DeepSeek 等） | `/ai/index.json` → 派生 TXT / HTML / JSON | 普通网页聊天 AI 可能无法可靠读取 raw PDF 二进制或执行 PDF.js，因此提供纯文本派生层 |
-| **Agent / Script** | 原始 PDF：`raw.githubusercontent.com`<br>（见 index.json 的 `original_raw_url`） | 环境真实支持下载二进制 + 本地文件系统 + PDF parser 时，直接解析原始 PDF |
+| **Web Chat AI**<br>（ChatGPT / Gemini / DeepSeek 等） | 打开 `/ai/` 静态 HTML → 沿真实 `<a href>` 链接导航到 landing page → full.txt / full.html / pages / blocks | HTML-first：普通网页聊天 AI 可能无法可靠读取 raw PDF 二进制、无法执行 PDF.js，也可能无法从 JSON 字符串自行构造并 fetch URL，因此提供纯静态 HTML 链接导航 + 纯文本派生层 |
+| **Agent / Script** | `/ai/index.json`（机器接口，纯 JSON）<br>或原始 PDF：`raw.githubusercontent.com`（`original_raw_url`） | 环境真实支持任意 HTTP fetch、二进制下载、本地文件系统、PDF parser 时使用，比派生文本更接近源头 |
 
-## Web Chat AI 推荐流程
+## Web Chat AI 推荐流程（HTML 链接导航）
 
-1. 读取 `index.json`（上述机器入口）。
-2. 根据用户提到的书名，用 `title` / `display_title` / `filename` /
-   `source_path` / `match_key` 定位文档。
-   用户可能只说「手把手教你学 DSP：基于 TMS320F28335」这类不完全一致的名称；
-   `match_key` 已做 NFKC 归一 + casefold + 去空白，可直接匹配。
-   不要用生成式 AI 自行创造别名。
-3. 读取整本：`ai_full_text_url`（full.txt，带 PDF_PAGE 分隔与 TEXT_SOURCE 标记）。
-   文档很大时改用页级读取：`ai_pages_base_url` + 4 位补零页号
-   （如 `0148.txt`）。命中目标后通常只需读 当前页 / 前一页 / 后一页。
-4. 精确页查询：`ai_pages_base_url`（每 PDF 物理页一个 TXT）。
-5. 版面位置查询：`ai_blocks_base_url`（每页 block/bbox JSON；
-   坐标为 PDF 点、原点页面左上角；OCR 块带 `block_source: "ocr"`，
+1. 打开 [AI Reading Path 入口](https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/)。
+   页面静态 HTML 源码本身即含全部 370 个文档的标题与真实链接，无需 JavaScript。
+2. 按用户提到的书名（页面中显示标题 / source_path 原文）找到对应行，
+   点击其主链接进入**文档 landing page**（`docs/<doc_id>/index.html`）。
+   用户可能只说「手把手教你学 DSP：基于 TMS320F28335」这类不完全一致的名称，
+   按显示标题 / 路径模糊对应即可，不要自行创造别名。
+3. landing page 上有真实链接直达：
+   - `full.txt`（整本全文，带 PDF_PAGE 分隔与 TEXT_SOURCE 标记）；
+   - `full.html`（全文 HTML，每页锚点 `#pdf-page-NNNN`（4 位补零页号），页头旁附该页 TXT / blocks JSON 链接）；
+   - `manifest.json`（提取元数据：SHA256、页数、来源统计、引擎版本）；
+   - `Pages 目录`（`pages/index.html`：每一物理页一个 TXT 的完整真实链接清单）；
+   - `Blocks 目录`（`blocks/index.html`：每页版面块 JSON 的完整真实链接清单）。
+4. 精确页查询：进入 Pages 目录，直接点击目标页链接（如 `PDF Page 0148`），
+   读取该页 TXT。命中目标后通常只需读 当前页 / 前一页 / 后一页。
+   不需要根据页号自己拼 URL。
+5. 版面位置查询：进入 Blocks 目录点击对应页 JSON
+   （坐标为 PDF 点、原点页面左上角；OCR 块带 `block_source: "ocr"`，
    不与 embedded 坐标混淆）。
-6. 需要原始证据 / 人工核验时，再查看 `manifest_url`（含 `source_sha256`）、
-   `original_github_url`、`original_raw_url`、`viewer_url`。
+6. 需要原始证据 / 人工核验时，再点 landing page 上的
+   GitHub 原始 PDF / raw PDF / PDF.js Viewer 链接。
+
+补充说明：
+
+- **PDF.js Viewer 的 HTML 页面不是 PDF 正文**：`web/viewer.html` 需要浏览器执行
+  JavaScript 才能渲染 PDF，网页聊天 AI 不要把它当作文本来源。
+- **original / raw PDF 仍是 Source of Truth**：派生文本只是便于读取的表示。
+- 若你的环境确实支持任意 URL fetch（部分 Agent / 高级工具），也可直接用
+  `index.json`（机器接口，含每文档的全部绝对 URL 与元数据）。
 
 页码约定：所有 `PDF_PAGE` / `pages/0001.txt` 均为 **PDF 物理页（1-based）**，
 即 PDF.js Viewer 显示的页码；不是书籍页脚印刷页码。
@@ -79,10 +95,15 @@ https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/index.json
 
 ## Agent / Script 说明
 
-如果你的运行环境真实支持：下载二进制文件、本地文件系统、PDF parser
-（如 PyMuPDF / pdfplumber），则可以直接解析原始 PDF
-（index.json 中每个文档的 `original_raw_url`，非 LFS 文件返回真实 PDF 二进制，
-CORS 已开启、支持 Range 请求）。这比派生文本更接近源头。
+如果你的运行环境真实支持：任意 HTTP fetch、下载二进制文件、本地文件系统、
+PDF parser（如 PyMuPDF / pdfplumber），则可以：
+
+- 直接解析原始 PDF（`index.json` 中每个文档的 `original_raw_url`，
+  非 LFS 文件返回真实 PDF 二进制，CORS 已开启、支持 Range 请求）——
+  这比派生文本更接近源头；
+- 或读取机器接口 `index.json`
+  （`https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/index.json`，
+  纯 JSON，含每文档全部绝对 URL 与元数据）。
 
 ## 派生层的生成与维护
 

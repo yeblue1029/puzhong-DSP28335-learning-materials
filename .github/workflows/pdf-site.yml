@@ -132,7 +132,33 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Real link-graph acceptance against the just-deployed Pages site:
+  # every hop URL must be parsed from the previous page's real <a href>
+  # (simulates Web Chat AI navigation; no URL self-construction).
+  linkchain:
+    name: Link-graph acceptance (deployed Pages)
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run link-chain acceptance test (real hyperlinks only)
+        run: |
+          python3 scripts/test-ai-linkchain.py \
+            --base "${{ needs.deploy.outputs.page_url }}" \
+            --no-sweep
