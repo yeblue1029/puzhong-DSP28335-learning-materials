@@ -144,6 +144,26 @@ def check_repo_nav_docs():
         err("A: README.md 中 /ai/ 入口不是真实 Markdown hyperlink")
     else:
         ok(f"A: README.md /ai/ 为真实 Markdown hyperlink → {m.group(1)}")
+        # ---- 入口鲁棒性：链接必须位于文件前部（Web Chat AI 抓取 README
+        #      文件页时可能只读前部，入口过早出现才能被可靠发现）----
+        link_line = t[:m.start()].count("\n") + 1
+        total_lines = t.count("\n") + 1
+        if link_line > 40 or link_line > total_lines * 0.4:
+            err(f"A: README.md /ai/ 入口位置过靠后（第 {link_line}/{total_lines}"
+                " 行，须在文件前部，Web Chat AI 截断抓取时才能看到）")
+        else:
+            ok(f"A: README.md /ai/ 入口位于第 {link_line} 行（文件前部）")
+        # ---- HTML-first 顺序：/ai/ 静态入口须先于 /ai/index.json 机器入口 ----
+        machine_pos = t.find("/ai/index.json")
+        if machine_pos < 0:
+            machine_pos = t.find("ai/index.json")
+        if machine_pos < 0:
+            warn("A: README.md 未提及 /ai/index.json 机器入口")
+        elif m.start() > machine_pos:
+            err("A: README.md 中 /ai/ HTML 入口未出现在 /ai/index.json "
+                "机器入口之前（HTML-first 顺序被破坏）")
+        else:
+            ok("A: README.md /ai/ HTML 入口先于 index.json 机器入口")
     if not re.search(r"\[[^\]]*AI_ACCESS[^\]]*\]\(\s*AI_ACCESS\.md\s*\)", t):
         err("A: README.md 中 AI_ACCESS.md 不是真实 Markdown link")
     else:

@@ -3,6 +3,19 @@
 本仓库整理了普中 DSP28335 开发板相关的学习资料、实验程序、
 教学课件、原理图和芯片文档。
 
+## 🤖 Web Chat AI 阅读入口
+
+ChatGPT / Gemini / DeepSeek 等网页聊天 AI 请从下面的静态 HTML 入口开始，
+并只沿页面中的真实链接继续，不要自行拼接 URL：
+
+[https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/](https://yeblue1029.github.io/puzhong-DSP28335-learning-materials/ai/)
+
+导航方式：文档列表 → 文档页面（landing page）→ full.txt / pages / blocks，
+全部为真实可点击链接。详细规则见 [AI_ACCESS.md](AI_ACCESS.md)。
+
+注意：`/ai/index.json` 仅作为支持任意 HTTP fetch 的 Agent / Script 机器接口，
+Web Chat AI 不要从 index.json 构造下一跳 URL。
+
 ## 仓库主要内容
 
 - `1--用户必看`：开发板使用说明和注意事项
